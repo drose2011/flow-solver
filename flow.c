@@ -2,6 +2,7 @@
 //#include <stdlib.h>
 //#include <string.h>
 
+#include <time.h>
 #include "board.h"
 #include "quadtree.h"
 #include <stdio.h>
@@ -16,9 +17,36 @@ int debug = 0;
 
 
 
-int openDirections(int **board, int col, int row, int path, int rows, int cols)
+int openDirections(int **board, int col, int row, int path, int rows, int cols, struct Node *prev)
 {
 	int out = 0;
+	if(row > 0) {
+		if(board[row-1][col] == -1 && prev != NULL && prev->row != (row-1)) {
+			return 0; // North is a already visited spot and not where we just were
+		}
+		if ((board[row-1][col]==0 || board[row-1][col]==path))
+			out += 1;
+	}
+	if(row < rows-1) {
+		if(board[row+1][col] == -1 && prev != NULL && prev->row != (row+1))
+			return 0; // North is a already visited spot and not where we just were
+		if ((board[row+1][col]==0 || board[row+1][col]==path))
+			out += 2;
+	}
+	if(col > 0) {
+		if(board[row][col-1] == -1 && prev != NULL && prev->col != (col-1))
+			return 0; // North is a already visited spot and not where we just were
+		if ((board[row][col-1]==0 || board[row][col-1]==path))
+			out += 4;
+	}
+	if(col < cols-1) {
+		if(board[row][col+1] == -1 && prev != NULL && prev->col != (col+1))
+			return 0; // North is a already visited spot and not where we just were
+		if ((board[row][col+1]==0 || board[row][col+1]==path))
+			out += 8;
+	}	
+	
+	/*
 	if(row > 0 && (board[row-1][col]==0 || board[row-1][col]==path))
 		out += 1;
 	if(row < rows-1 && (board[row+1][col]==0 || board[row+1][col]==path))
@@ -27,10 +55,11 @@ int openDirections(int **board, int col, int row, int path, int rows, int cols)
 		out += 4;
 	if(col < cols-1 && (board[row][col+1]==0 || board[row][col+1]==path))
 		out += 8;
+	*/
 	return out;		
 }
 
-int fillNode(int **board, struct Node *node, int path, int rows, int cols, int depth, int max_depth) {
+int fillNode(int **board, struct Node *node, int path, int rows, int cols, int depth, int max_depth, struct Node *prev) {
 	int row = node->row;
 	int col = node->col;
 
@@ -40,7 +69,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 		return 1;
 
 	board[row][col] = -1;
-	int open = openDirections(board,col,row,path, rows, cols);
+	int open = openDirections(board,col,row,path, rows, cols,prev);
 	if(open == 0) {
 		board[row][col]=0;
 		return 1;
@@ -62,7 +91,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 			fprintf(stderr, "Open to North\n");
 		}
 		new = addChild(node,0);	
-		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth);
+		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
 			node->childN=NULL;
@@ -76,7 +105,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 			fprintf(stderr, "Open to South\n");
 		}
 		new = addChild(node,2);
-		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth);
+		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
 			node->childS=NULL;
@@ -89,7 +118,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 			fprintf(stderr, "Open to West\n");
 		}
 		new = addChild(node,3);
-		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth);
+		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
 			node->childW=NULL;
@@ -102,7 +131,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 			fprintf(stderr, "Open to East\n");
 		}
 		new = addChild(node,1);
-		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth);
+		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
 			node->childE=NULL;
@@ -146,7 +175,7 @@ struct Tree *buildPathTree(int **board, int path, int max_depth)
 	}
 
 	board[row][col] = -1;
-	fillNode(board, tree->root, path, rows, cols, 0, max_depth);
+	fillNode(board, tree->root, path, rows, cols, 0, max_depth,NULL);
 	board[row][col] = path;
 
 	if(debug) {
@@ -287,156 +316,216 @@ int max(int a, int b)
 
 int main()
 {
+	clock_t begin = clock();
 
-#if 0
-	char *input_board = "0\n";		// 1x1
-	
-	char *input_board = "00\n"		// 2x2
-			    "00\n";
+	char *input_boards[100] = {
+		"0 \n ",			// 1x1, 0
+		
+		"0 0 \n "			// 2x2, 1
+		"0 0 \n ",
+		
+		"0 0 0 \n "			// 3x3, 2
+		"0 0 0 \n "
+		"0 0 0 \n ",
 
-	char *input_baord = "000\n"		// 3x3
-			    "000\n"
-			    "000\n";
+		"0 0 0 0 \n "			// 4x4, 3
+		"0 0 0 0 \n "
+		"0 0 0 0 \n "
+		"0 0 0 0 \n ",
+		
+		"0 0 0 0 0 \n "			// 5x5, 4
+		"0 0 0 0 0 \n "
+		"0 0 0 0 0 \n "
+		"0 0 0 0 0 \n "
+		"0 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 \n "		// 6x6, 5
+		"0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 0 \n "		// 7x7, 6
+		"0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 0 0 \n "		// 8x8, 7
+		"0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 0 0 0 \n "		// 9x9, 8
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 \n ",
 
-	char *input_board = "0000\n"		// 4x4
-			    "0000\n"
-			    "0000\n"
-			    "0000\n";
+		"0 0 0 0 0 0 0 0 0 0 \n "	// 10x10, 9
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 0 0 0 0 0 \n "	// 11x11, 10
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 \n ",
 
-	char *input_board = "00000\n"		// 5x5
-			    "00000\n"
-			    "00000\n"
-			    "00000\n"
-			    "00000\n";
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "	// 12x12, 11
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n ",
+		
+		"1 0 0 1 \n "			// 4x4, 12
+		"2 0 0 2 \n "
+		"3 0 0 3 \n "
+		"4 0 0 4 \n ",
+		
+		"1 0 0 0 0 0 1 \n "		// 7x7, 13
+		"2 0 0 0 0 0 2 \n "
+		"3 0 0 0 0 0 3 \n "
+		"4 0 0 0 0 0 4 \n "
+		"5 0 0 0 0 0 5 \n "
+		"6 0 0 0 0 0 6 \n "
+		"7 0 0 0 0 0 7 \n ",
+		
+		"1 0 0 0 1 \n "			// 5x5, 14
+		"0 0 0 0 0 \n "
+		"0 2 3 0 4 \n "
+		"0 0 0 0 3 \n "
+		"0 4 0 0 2 \n ",
+		
+		"1 0 0 0 1 \n "			// 5x5, 15
+		"0 0 0 0 0 \n "
+		"0 2 3 0 4 \n "
+		"0 0 0 0 3 \n "
+		"0 4 0 0 2 \n ",
+		
+		"1 2 0 0 2 \n "			// 2x5, 16
+		"0 0 0 0 1 \n ",
+		
+		"1 0 2 0 2 3 0 \n "		// 7x7, 17
+		"4 0 5 0 0 6 0 \n "
+		"0 0 0 0 5 0 0 \n "
+		"0 0 0 0 6 0 3 \n "
+		"1 7 4 0 0 0 0 \n "
+		"0 0 0 0 0 7 0 \n "
+		"0 0 0 0 0 0 0 \n ",
+		
+		"0 0 0 0 1 2 1 0 \n "		// 8x8, 18
+		"0 0 0 0 3 0 4 0 \n "
+		"0 0 5 0 0 0 0 0 \n "
+		"0 0 0 0 0 2 4 0 \n "
+		"0 0 5 6 0 0 0 0 \n "
+		"0 0 0 0 0 7 0 0 \n "
+		"0 6 7 3 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 \n ",
+		
+		"1 0 0 0 0 0 0 2 \n "		// 8x8, 19
+		"0 0 0 0 0 0 3 0 \n "
+		"0 0 0 4 0 0 5 0 \n "
+		"0 0 0 0 0 0 0 3 \n "
+		"0 0 2 0 0 5 0 0 \n "
+		"0 0 0 0 0 6 1 0 \n "
+		"0 6 0 0 0 0 0 0 \n "
+		"0 0 0 4 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 \n "		// 6x6, 20
+		"1 2 0 3 0 0 \n "
+		"0 4 0 0 0 0 \n "
+		"0 5 0 0 0 1 \n "
+		"0 4 0 0 3 2 \n "
+		"5 0 0 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 1 2 3 \n "		// 9x9, 21
+		"0 4 0 0 0 0 0 0 0 \n "
+		"5 0 0 1 0 0 0 0 0 \n "
+		"0 0 0 2 0 0 0 0 0 \n "
+		"0 3 0 0 0 0 0 6 0 \n "
+		"0 0 0 0 7 0 0 0 0 \n "
+		"0 0 0 0 0 0 8 0 8 \n "
+		"0 0 0 5 0 0 7 6 9 \n "
+		"4 0 0 0 0 9 0 0 0 \n ",
 
-	char *input_board = "000000\n"		// 6x6
-			    "000000\n"
-			    "000000\n"
-			    "000000\n"
-			    "000000\n"
-			    "000000\n";
+		"1 0 2 0 0 0 0 0 0 0 \n "	// 10x10, 22
+		"3 0 0 0 4 0 5 6 0 0 \n "
+		"0 0 0 0 7 0 0 0 0 0 \n "
+		"0 1 2 0 0 0 0 0 0 0 \n "
+		"0 0 8 0 0 7 0 0 0 0 \n "
+		"4 3 0 0 0 0 0 5 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 9 10 0 0 \n "
+		"0 9 0 0 0 6 0 0 0 0 \n "
+		"0 0 0 0 0 10 8 0 0 0 \n ",
+		
+		"0 0 0 0 0 0 0 0 0 0 0 1 \n "	// 12x12, 23
+		"0 0 0 0 0 0 0 2 0 0 0 3 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 3 0 0 0 2 4 0 0 5 0 \n "
+		"1 0 0 0 6 7 8 5 0 0 0 0 \n "
+		"0 9 0 0 0 0 0 0 4 0 0 0 \n "
+		"0 0 0 8 7 0 10 0 0 0 0 0 \n "
+		"0 0 11 0 0 10 0 0 0 0 6 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 0 0 0 12 \n "
+		"0 11 0 0 0 0 0 0 0 0 0 0 \n "
+		"9 0 0 0 0 0 0 0 0 0 0 12 \n ",
+		
+		"0 0 1 0 0 0 0 0 0 0 2 \n "	// 11x11, 24
+		"0 0 0 0 3 0 0 0 0 0 0 \n "
+		"0 0 4 0 0 0 0 0 5 0 0 \n "
+		"0 0 0 0 0 0 6 0 0 0 3 \n "
+		"0 0 4 0 0 0 0 7 0 0 0 \n "
+		"0 0 0 0 0 0 8 9 0 0 0 \n "
+		"0 2 0 0 0 0 0 0 0 0 0 \n "
+		"0 10 0 0 0 0 0 11 0 0 0 \n "
+		"0 0 0 0 0 0 0 0 9 0 0 \n "
+		"0 6 7 0 0 0 0 0 10 0 0 \n "
+		"0 0 0 0 1 8 11 5 0 0 0 \n ",
 
-	char *input_board = "0000000\n"		// 7x7
-			    "0000000\n"
-			    "0000000\n"
-			    "0000000\n"
-			    "0000000\n"
-			    "0000000\n"
-			    "0000000\n";
+	};
 	
-	char *input_board = "00000000\n"	// 8x8
-			    "00000000\n"
-			    "00000000\n"
-			    "00000000\n"
-			    "00000000\n"
-			    "00000000\n"
-			    "00000000\n"
-			    "00000000\n";
-
-	char *input_board = "000000000\n"	// 9x9
-			    "000000000\n"
-			    "000000000\n"
-			    "000000000\n"
-			    "000000000\n"
-			    "000000000\n"
-			    "000000000\n"
-			    "000000000\n"
-			    "000000000\n";
-
-	char *input_board = "0000000000\n"	// 10x10
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n"
-			    "0000000000\n";
+	char *input_board = input_boards[20];
 	
-	char *input_board = "1001\n"
-			    "2002\n"
-			    "3003\n"
-			    "4004\n";
-	
-	char *input_board = "1000001\n"
-			    "2000002\n"
-			    "3000003\n"
-			    "4000004\n"
-			    "5000005\n"
-			    "6000006\n"
-			    "7000007\n";
-	
-	char *input_board = "10001\n"
-			    "00000\n"
-			    "02304\n"
-			    "00003\n"
-			    "04002\n";
-	
-	char *input_board = "10001\n"		// 5x5
-			    "00000\n"
-			    "02304\n"
-			    "00003\n"
-			    "04002\n";
-	
-	char *input_board = "12002\n"
-			    "00001\n";
-
-	
-	char *input_board = "1020230\n"		// 7x7
-			    "4050060\n"
-			    "0000500\n"
-			    "0000603\n"
-			    "1740000\n"
-			    "0000070\n"
-			    "0000000\n";
-	
-	char *input_board = "00001210\n"	// 8x8
-			    "00003040\n"
-			    "00500000\n"
-			    "00000240\n"
-			    "00560000\n"
-			    "00000700\n"
-			    "06730000\n"
-			    "00000000\n";
-	
-	char *input_board = "10000002\n"	// 8x8
-			    "00000030\n"
-			    "00040050\n"
-			    "00000003\n"
-			    "00200500\n"
-			    "00000610\n"
-			    "06000000\n"
-			    "00040000\n";
-
-	char *input_board = "000000\n"		// 6x6
-			    "120300\n"
-			    "040000\n"
-			    "050001\n"
-			    "040032\n"
-			    "500000\n";
-
-
-#endif
-	
-	char *input_board = "10000002\n"	// 8x8
-			    "00000030\n"
-			    "00040050\n"
-			    "00000003\n"
-			    "00200500\n"
-			    "00000610\n"
-			    "06000000\n"
-			    "00040000\n";
-	
-			    
 	int numPaths;
-	
-
 	int **board = make_board(input_board, &numPaths);
 
 	printBoard(board);
 
-	int max_depth = max(board[0][0],board[0][1]) * 3;
+	int max_depth = max(board[0][0],board[0][1]) * 3.5;
 
 	if(debug) {
 		fprintf(stderr, "parsed board, printing:\n");
@@ -479,6 +568,9 @@ int main()
 		freeTree(&(paths[i]));
 	}
 	free_board(board);
+
+	clock_t end = clock();
+	printf("Time to execute: %f\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
 
