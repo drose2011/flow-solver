@@ -4,64 +4,66 @@
 
 #include <time.h>
 #include "board.h"
-#include "quadtree.h"
+#include "tree.h"
+#include "helper.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "mylist.h"
+#include "point.h"
+
+// TODO:
+// 	- Move flow specific tree functions
+// 	- free points before freeing all the nodes in the tree
+// 	- Change to match tree void *data
+// 	- Change to match variable number of children
+// 	- split up valid move function into find first path and then find next path from pointer to a solution
+// 	- have openDirections only check for one -1 around point so prev doesnt have to be passed
+
 
 int debug = 0;
-
-
-
-
 
 
 
 int openDirections(int **board, int col, int row, int path, int rows, int cols, struct Node *prev)
 {
 	int out = 0;
+	struct Point *prevPt;
+	if(prev != NULL)
+		prevPt = prev->data;
 	if(row > 0) {
-		if(board[row-1][col] == -1 && prev != NULL && prev->row != (row-1)) {
+		if(board[row-1][col] == -1 && prev != NULL && prevPt->row != (row-1)) {
 			return 0; // North is a already visited spot and not where we just were
 		}
 		if ((board[row-1][col]==0 || board[row-1][col]==path))
 			out += 1;
 	}
 	if(row < rows-1) {
-		if(board[row+1][col] == -1 && prev != NULL && prev->row != (row+1))
+		if(board[row+1][col] == -1 && prev != NULL && prevPt->row != (row+1))
 			return 0; // North is a already visited spot and not where we just were
 		if ((board[row+1][col]==0 || board[row+1][col]==path))
 			out += 2;
 	}
 	if(col > 0) {
-		if(board[row][col-1] == -1 && prev != NULL && prev->col != (col-1))
+		if(board[row][col-1] == -1 && prev != NULL && prevPt->col != (col-1))
 			return 0; // North is a already visited spot and not where we just were
 		if ((board[row][col-1]==0 || board[row][col-1]==path))
 			out += 4;
 	}
 	if(col < cols-1) {
-		if(board[row][col+1] == -1 && prev != NULL && prev->col != (col+1))
+		if(board[row][col+1] == -1 && prev != NULL && prevPt->col != (col+1))
 			return 0; // North is a already visited spot and not where we just were
 		if ((board[row][col+1]==0 || board[row][col+1]==path))
 			out += 8;
 	}	
 	
-	/*
-	if(row > 0 && (board[row-1][col]==0 || board[row-1][col]==path))
-		out += 1;
-	if(row < rows-1 && (board[row+1][col]==0 || board[row+1][col]==path))
-		out += 2;
-	if(col > 0 && (board[row][col-1]==0 || board[row][col-1]==path))
-		out += 4;
-	if(col < cols-1 && (board[row][col+1]==0 || board[row][col+1]==path))
-		out += 8;
-	*/
 	return out;		
 }
 
 int fillNode(int **board, struct Node *node, int path, int rows, int cols, int depth, int max_depth, struct Node *prev) {
-	int row = node->row;
-	int col = node->col;
+	// TODO: make fillNode just take the data
+	struct Point *pt = node->data;
+	int row = pt->row;
+	int col = pt->col;
 
 	if(board[row][col] == path)
 		return 0;
@@ -90,7 +92,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 		if(debug) {
 			fprintf(stderr, "Open to North\n");
 		}
-		new = addChild(node,0);	
+		new = addTreeChild(node,0);	
 		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
@@ -104,7 +106,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 		if(debug) {
 			fprintf(stderr, "Open to South\n");
 		}
-		new = addChild(node,2);
+		new = addTreeChild(node,2);
 		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
@@ -117,7 +119,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 		if(debug) {
 			fprintf(stderr, "Open to West\n");
 		}
-		new = addChild(node,3);
+		new = addTreeChild(node,3);
 		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
@@ -130,7 +132,7 @@ int fillNode(int **board, struct Node *node, int path, int rows, int cols, int d
 		if(debug) {
 			fprintf(stderr, "Open to East\n");
 		}
-		new = addChild(node,1);
+		new = addTreeChild(node,1);
 		prune = fillNode(board,new,path,rows,cols,depth+1,max_depth,node);
 		if(prune) {
 			free(new);
@@ -168,7 +170,8 @@ struct Tree *buildPathTree(int **board, int path, int max_depth)
 	}
 	
 	struct Tree *tree = malloc(sizeof(struct Tree));
-	initTree(tree,col,row);
+	struct Point *pt = newPoint(row,col);
+	initTree(tree,pt);
 
 	if(debug) {
 		fprintf(stderr, "initiated Tree for path %d\n", path);
@@ -191,8 +194,8 @@ void printListNode(void *node)
 	if(node == NULL)
 		printf("NULL, ");
 	else {
-		struct Node *casted = (struct Node *)node;
-		printf("(%d,%d), ", casted->row, casted->col);
+		struct Point *pt = ((struct Node *)node)->data;
+		printf("(%d,%d), ", pt->row, pt->col);
 	}
 }
 void printList(struct List *list)
@@ -206,9 +209,11 @@ void applyPathToBoard(int **board, struct List *overallPath, int numPath)
 {
 	board++;
 	struct Node *cur;
+	struct Point *pt;
 	while(numPath > 0) {
 		while((cur = popFront(overallPath)) != NULL) {
-			board[cur->row][cur->col] = numPath;	
+			pt = cur->data;
+			board[pt->row][pt->col] = numPath;	
 		}
 		numPath--;
 	}
@@ -224,9 +229,9 @@ int nodeComp(const void *listNode, const void *curNode) {
 		}
 		return 1;
 	}
-	struct Node *n1 = (struct Node *)listNode;
-	struct Node *n2 = (struct Node *)curNode;
-	if(n1->row == n2->row && n1->col == n2->col) {
+	struct Point *pt1 = ((struct Node *)listNode)->data;
+	struct Point *pt2 = ((struct Node *)curNode)->data;
+	if(pt1->row == pt2->row && pt1->col == pt2->col) {
 		return 0;
 	}
 	return 1;
@@ -236,8 +241,10 @@ int validMove(int **board, struct List *visited, struct Node *curNode) {
 		fprintf(stderr, "In validMove\n");
 	if(curNode == NULL)
 		return 1;
+	struct Point *pt = curNode->data;
+
 	if(isLeaf(curNode)) {
-		if(board[curNode->row+1][curNode->col] == 0) {
+		if(board[pt->row+1][pt->col] == 0) {
 			return 1;
 		}
 		if(numSol-- == 0) {
@@ -284,8 +291,7 @@ int getValidPath(int **board, struct List *visited, struct Tree *paths, int numP
 	}
 	if(debug)
 		fprintf(stderr,"Finding tree for numPaths = %d.\n", numPaths);
-	struct Node *cur = (paths)->root;
-	if(debug) fprintf(stderr, "Test, %d, %d\n", cur->row, cur->col);
+	struct Node *cur = paths->root;
 	numSol=0;
 	if(validMove(board,visited,cur) == 1) {
 		if(debug)
@@ -518,10 +524,10 @@ int main()
 
 	};
 	
-	char *input_board = input_boards[20];
+	char *input_board = input_boards[19];
 	
 	int numPaths;
-	int **board = make_board(input_board, &numPaths);
+	int **board = makeBoard(input_board, &numPaths);
 
 	printBoard(board);
 
@@ -567,7 +573,7 @@ int main()
 	for(int i=0; i<numPaths; i++) {
 		freeTree(&(paths[i]));
 	}
-	free_board(board);
+	freeBoard(board);
 
 	clock_t end = clock();
 	printf("Time to execute: %f\n", (double)(end - begin) / CLOCKS_PER_SEC);

@@ -4,19 +4,23 @@
 
 CC  = gcc
 
-INCLUDES = 
+INCLUDES =
 CFLAGS   = -g -Wall $(INCLUDES)
 
 LDFLAGS = -g 
 LDLIBS = -L. -lmylist
 
-flow: flow.o board.o quadtree.o
+flow: flow.o board.o tree.o point.o helper.o
 
 board.o: board.c board.h
 
-flow.o: flow.c board.h quadtree.h
+flow.o: flow.c board.h tree.h point.h
 
-quadtree.o: quadtree.c quadtree.h
+tree.o: tree.c tree.h point.h
+
+point.o: point.c point.h
+
+helper.o: helper.c helper.h
 
 .PHONY: clean
 clean:

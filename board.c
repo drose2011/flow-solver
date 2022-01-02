@@ -1,49 +1,44 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include "helper.h"
 #include "board.h"
 
 extern int debug;
 
-// Constructing 2d int array
-int **make_board(char *input_board, int *numPath) 
+// finds number of rows and cols in input. puts results into rows and cols
+void getDimentions(int *rows, int *cols, char *input, char *delim)
 {
-	int i;
-	
-	char input_copy[strlen(input_board) + 1];
-	strcpy(input_copy, input_board);
-	char *tmp = strtok(input_copy," ");
+	int row_count = 0;
+	int col_count = 0;
 
-	int rows = 0;
-	int cols = 0;
+	char input_copy[strlen(input) + 1];
+	strcpy(input_copy, input);
+	char *tmp = strtok(input_copy, delim);
 
-	// count cols and rows
 	while(tmp != NULL) {
 		while(tmp[0] != '\n') {
-			if(rows == 0) {
-				cols++;
-			}
+			if(row_count == 0)
+				col_count++;
 			tmp = strtok(NULL, " ");
 		}
-		rows++;
+		row_count++;
 		tmp = strtok(NULL, " ");
 	}
-	
-	
-	int **board = malloc((rows * sizeof(int *)) + 1);
-	board[0] = malloc(2 * sizeof(int));
-	board[0][0] = rows;
-	board[0][1] = cols;
-	for(i = 0; i < rows; i++) 
-		board[i+1] = malloc(cols * sizeof(int));
+	*rows = row_count;
+	*cols = col_count;
+}
 
-	
-	strcpy(input_copy, input_board);
-	tmp = strtok(input_copy," ");
+// fills board with input, puts number of paths into numPath
+void fillBoard(int **board, char *input, int *numPath, char *delim)
+{
+	int max = 0;
+	char input_copy[strlen(input) + 1];
+	strcpy(input_copy, input);
+	char *tmp = strtok(input_copy, delim);
+
 	int curRow = 1;
 	int curCol = 0;
-	int max = 0;
 	while(tmp != NULL) {
 		if(tmp[0] == '\n') {
 			curRow++;
@@ -57,6 +52,21 @@ int **make_board(char *input_board, int *numPath)
 		tmp = strtok(NULL, " ");
 	}
 	*numPath = max;
+}
+
+// Constructing 2d int array
+int **makeBoard(char *input_board, int *numPath) 
+{
+	int rows, cols;
+
+	char *delim = " ";
+
+	getDimentions(&rows, &cols, input_board, delim);
+
+	int **board = init2DArray(rows,cols);	
+	
+	fillBoard(board, input_board, numPath, delim);
+
 	return board;
 }
 
@@ -84,7 +94,7 @@ void printBoard(int **board)
 }
 
 // free board
-void free_board(int **board) 
+void freeBoard(int **board) 
 {
 	int rows = board[0][0];
 	for(int i=0; i<rows; i++)
