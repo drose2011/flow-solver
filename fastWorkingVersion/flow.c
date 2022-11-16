@@ -529,6 +529,7 @@ int main()
 	int numPaths;
 	int **board = makeBoard(input_board, &numPaths);
 
+	printf("Input Board:\n");
 	printBoard(board);
 
 	int max_depth = max(board[0][0],board[0][1]) * 3.5;
@@ -541,7 +542,7 @@ int main()
 	struct Tree paths[numPaths];
 	for(int i=0; i<numPaths; i++) {
 		paths[i] = *buildPathTree(board, i+1, max_depth);
-		printf("Finished tree for path %d\n", i+1);
+		// printf("Finished tree for path %d\n", i+1);
 	}
 
 	if(debug) {
@@ -562,14 +563,11 @@ int main()
 	
 	applyPathToBoard(board, &overallPath, numPaths);
 
+	printf("Solution:\n");
 	printBoard(board);
 
 	removeAllListNodes(&overallPath);
-	/*	
-	for(int i=0; i<numPaths; i++) {
-		printTree(&(paths[i]));
-	}
-	*/
+	
 	for(int i=0; i<numPaths; i++) {
 		freeTree(&(paths[i]));
 	}

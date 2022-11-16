@@ -268,8 +268,6 @@ int max(int a, int b)
 
 int main()
 {
-	clock_t begin = clock();
-
 	char *input_boards[100] = {
 		"0 \n ",			// 1x1, 0
 		
@@ -470,61 +468,66 @@ int main()
 
 	};
 	
-	char *input_board = input_boards[19];
-	
-	int numPaths;
-	int **board = makeBoard(input_board, &numPaths);
+	for(int j=0; j<25; j++){
 
-	printBoard(board);
+		clock_t begin = clock();
 
-	int max_depth = max(board[0][0],board[0][1]) * 3.5;
+		char *input_board = input_boards[j];
+		
+		int numPaths;
+		int **board = makeBoard(input_board, &numPaths);
 
-	if(debug) {
-		fprintf(stderr, "parsed board, printing:\n");
 		printBoard(board);
-	}
 
-	struct Tree *paths[numPaths];
-	for(int i=0; i<numPaths; i++) {
-		paths[i] = buildPathTree(board, i+1, max_depth);
-		printf("Finished tree for path %d\n", i+1);
+		int max_depth = max(board[0][0],board[0][1]) * 3.5;
+
+		if(debug) {
+			fprintf(stderr, "parsed board, printing:\n");
+			printBoard(board);
+		}
+
+		struct Tree *paths[numPaths];
+		for(int i=0; i<numPaths; i++) {
+			paths[i] = buildPathTree(board, i+1, max_depth);
+			printf("Finished tree for path %d\n", i+1);
+			if(debug)
+				printTree(paths[i]);
+		}
+
+		if(debug) {
+			fprintf(stderr, "built tree for each path\n");
+		}
+
+		struct List overallPath;
+		initList(&overallPath);
+
 		if(debug)
-			printTree(paths[i]);
+			fprintf(stderr, "visited/final path initiated, calling valid path finder now.\n");
+
+		if(getValidPath(board, &overallPath, paths, numPaths) == 1)
+			fprintf(stderr, "No Solution\n");
+
+		if(debug)
+			fprintf(stderr, "valid path finder finished, cleaning up.\n");
+		
+		applyPathToBoard(board, &overallPath, numPaths);
+
+		printBoard(board);
+
+		removeAllListNodes(&overallPath);
+		/*	
+		for(int i=0; i<numPaths; i++) {
+			printTree(&(paths[i]));
+		}
+		*/
+		for(int i=0; i<numPaths; i++) {
+			freeTree(paths[i]);
+		}
+		freeBoard(board);
+
+		clock_t end = clock();
+		printf("Time to execute: %f\n", (double)(end - begin) / CLOCKS_PER_SEC);
 	}
-
-	if(debug) {
-		fprintf(stderr, "built tree for each path\n");
-	}
-
-	struct List overallPath;
-	initList(&overallPath);
-
-	if(debug)
-		fprintf(stderr, "visited/final path initiated, calling valid path finder now.\n");
-
-	if(getValidPath(board, &overallPath, paths, numPaths) == 1)
-		fprintf(stderr, "No Solution\n");
-
-	if(debug)
-		fprintf(stderr, "valid path finder finished, cleaning up.\n");
-	
-	applyPathToBoard(board, &overallPath, numPaths);
-
-	printBoard(board);
-
-	removeAllListNodes(&overallPath);
-	/*	
-	for(int i=0; i<numPaths; i++) {
-		printTree(&(paths[i]));
-	}
-	*/
-	for(int i=0; i<numPaths; i++) {
-		freeTree(paths[i]);
-	}
-	freeBoard(board);
-
-	clock_t end = clock();
-	printf("Time to execute: %f\n", (double)(end - begin) / CLOCKS_PER_SEC);
 }
 
 

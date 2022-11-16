@@ -4,7 +4,7 @@
 #include "point.h"
 
 // TODO:
-// 	- chang to variable number of children
+// 	- change to variable number of children
 
 extern int debug;
 
